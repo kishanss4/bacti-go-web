@@ -1,0 +1,223 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* BACTI-GO Medical Design System - Professional Dark Theme */
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    --primary: 199 89% 48%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 20% 10%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 46%;
+
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 199 89% 48%;
+
+    --radius: 0.75rem;
+
+    /* Medical risk level colors */
+    --risk-low: 142 76% 36%;
+    --risk-moderate: 48 96% 53%;
+    --risk-high: 25 95% 53%;
+    --risk-critical: 0 84% 60%;
+
+    /* Status colors */
+    --success: 142 76% 36%;
+    --warning: 48 96% 53%;
+    --info: 199 89% 48%;
+
+    --sidebar-background: 220 20% 97%;
+    --sidebar-foreground: 220 10% 30%;
+    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 199 89% 95%;
+    --sidebar-accent-foreground: 199 89% 30%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 199 89% 48%;
+  }
+
+  .dark {
+    --background: 220 25% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 220 25% 12%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 220 25% 12%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 199 89% 48%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 20% 18%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 220 20% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 20% 20%;
+    --input: 220 20% 20%;
+    --ring: 199 89% 48%;
+
+    /* Medical risk level colors - adjusted for dark mode */
+    --risk-low: 142 70% 45%;
+    --risk-moderate: 48 90% 50%;
+    --risk-high: 25 90% 55%;
+    --risk-critical: 0 75% 55%;
+
+    /* Status colors - dark mode */
+    --success: 142 70% 45%;
+    --warning: 48 90% 50%;
+    --info: 199 89% 55%;
+
+    --sidebar-background: 220 25% 10%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 199 60% 25%;
+    --sidebar-accent-foreground: 199 70% 90%;
+    --sidebar-border: 220 20% 18%;
+    --sidebar-ring: 199 89% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* Prevent pull-to-refresh on mobile */
+    overscroll-behavior: none;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    /* Safe area insets for notched devices */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    /* Prevent text selection on touch */
+    -webkit-user-select: none;
+    user-select: none;
+    /* Prevent callouts on long press */
+    -webkit-touch-callout: none;
+    /* Smoother scrolling */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Allow text selection in inputs and textareas */
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Prevent iOS zoom on input focus - requires 16px minimum */
+  @media screen and (max-width: 767px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Medical-grade glass effect */
+  .glass {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+  }
+
+  /* Risk level badge utilities */
+  .risk-low {
+    @apply bg-[hsl(var(--risk-low))] text-white;
+  }
+
+  .risk-moderate {
+    @apply bg-[hsl(var(--risk-moderate))] text-black;
+  }
+
+  .risk-high {
+    @apply bg-[hsl(var(--risk-high))] text-white;
+  }
+
+  .risk-critical {
+    @apply bg-[hsl(var(--risk-critical))] text-white;
+  }
+
+  /* Gradient backgrounds */
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(199 89% 35%) 100%);
+  }
+
+  .gradient-dark {
+    background: linear-gradient(180deg, hsl(220 25% 10%) 0%, hsl(220 25% 6%) 100%);
+  }
+
+  /* Mobile touch-friendly targets - minimum 44px */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Hide scrollbar but allow scrolling */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Active state for touch devices */
+  @media (hover: none) and (pointer: coarse) {
+    .active\:scale-95:active {
+      transform: scale(0.95);
+    }
+  }
+
+  /* Capacitor/Native app specific styles */
+  .capacitor-app {
+    /* Prevent rubber banding */
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Status bar spacing for native apps */
+  .native-status-bar-padding {
+    padding-top: max(env(safe-area-inset-top), 20px);
+  }
+}
