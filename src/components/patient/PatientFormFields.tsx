@@ -70,7 +70,7 @@ export function PatientFormFields({
                 type="number"
                 min="0"
                 max="150"
-                value={formData.age}
+                value={formData.age ?? ""}
                 onChange={(e) => onChange("age", e.target.value)}
                 placeholder="Age"
                 required
