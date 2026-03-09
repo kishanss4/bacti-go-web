@@ -14,6 +14,7 @@ interface OcrResult {
   isMdr: boolean;
   mdrType: string[];
   rawText: string;
+  medicalSummary: string;
 }
 
 // Common antibiotic patterns
@@ -43,7 +44,7 @@ const organismPatterns = [
 ];
 
 // MDR detection patterns
-const mdrPatterns = {
+const mdrPatterns: Record<string, string[]> = {
   "MRSA": ["mrsa", "methicillin-resistant", "methicillin resistant"],
   "ESBL": ["esbl", "extended-spectrum beta-lactamase", "extended spectrum beta lactamase"],
   "VRE": ["vre", "vancomycin-resistant enterococcus", "vancomycin resistant enterococcus"],
@@ -58,7 +59,6 @@ function extractOrganisms(text: string): { name: string }[] {
 
   for (const pattern of organismPatterns) {
     if (lowerText.includes(pattern) && !seen.has(pattern)) {
-      // Normalize organism name
       let name = pattern;
       if (pattern.includes("e. coli") || pattern === "e.coli") name = "Escherichia coli";
       else if (pattern.includes("s. aureus") || pattern === "staph aureus") name = "Staphylococcus aureus";
@@ -81,19 +81,15 @@ function extractSensitivities(text: string, organisms: { name: string }[]): { or
   const sensitivities: { organism: string; antibiotic: string; result: "S" | "R" | "I" }[] = [];
   const lowerText = text.toLowerCase();
   const lines = text.split("\n");
-
-  // Default organism if only one found
   const defaultOrganism = organisms.length === 1 ? organisms[0].name : "Unknown";
 
   for (const antibiotic of antibioticPatterns) {
     if (lowerText.includes(antibiotic)) {
-      // Look for sensitivity patterns near the antibiotic
       for (const line of lines) {
         const lineLower = line.toLowerCase();
         if (lineLower.includes(antibiotic)) {
-          let result: "S" | "R" | "I" = "S"; // Default to sensitive if found
+          let result: "S" | "R" | "I" = "S";
 
-          // Check for resistance indicators
           if (lineLower.includes(" r ") || lineLower.includes(" r\t") || 
               lineLower.includes("resistant") || lineLower.includes("(r)") ||
               lineLower.match(new RegExp(`${antibiotic}\\s+r\\b`, "i"))) {
@@ -114,13 +110,8 @@ function extractSensitivities(text: string, organisms: { name: string }[]): { or
             .map(w => w.charAt(0).toUpperCase() + w.slice(1))
             .join("-");
 
-          // Avoid duplicates
           if (!sensitivities.find(s => s.antibiotic.toLowerCase() === antibiotic && s.organism === defaultOrganism)) {
-            sensitivities.push({
-              organism: defaultOrganism,
-              antibiotic: formattedAntibiotic,
-              result,
-            });
+            sensitivities.push({ organism: defaultOrganism, antibiotic: formattedAntibiotic, result });
           }
           break;
         }
@@ -146,10 +137,7 @@ function detectMdr(text: string): { isMdr: boolean; mdrType: string[] } {
     }
   }
 
-  return {
-    isMdr: detectedTypes.length > 0,
-    mdrType: detectedTypes,
-  };
+  return { isMdr: detectedTypes.length > 0, mdrType: detectedTypes };
 }
 
 function detectSpecimenType(text: string): string | undefined {
@@ -167,13 +155,104 @@ function detectSpecimenType(text: string): string | undefined {
 
   for (const [type, patterns] of Object.entries(specimenTypes)) {
     for (const pattern of patterns) {
-      if (lowerText.includes(pattern)) {
-        return type;
-      }
+      if (lowerText.includes(pattern)) return type;
     }
   }
 
   return undefined;
+}
+
+function generateMedicalSummary(
+  organisms: { name: string }[],
+  sensitivities: { organism: string; antibiotic: string; result: "S" | "R" | "I" }[],
+  specimenType: string | undefined,
+  isMdr: boolean,
+  mdrType: string[],
+  rawText: string
+): string {
+  const lines: string[] = [];
+  
+  lines.push("═══ CLINICAL LABORATORY SUMMARY ═══");
+  lines.push("");
+  
+  // Specimen info
+  lines.push(`📋 Specimen Type: ${specimenType || "Not specified"}`);
+  lines.push("");
+  
+  // Organisms
+  if (organisms.length > 0) {
+    lines.push("🔬 ISOLATED ORGANISMS:");
+    organisms.forEach((org, i) => {
+      lines.push(`  ${i + 1}. ${org.name}`);
+    });
+  } else {
+    lines.push("🔬 No organisms identified from the report text.");
+  }
+  lines.push("");
+  
+  // MDR Alert
+  if (isMdr) {
+    lines.push("⚠️ MULTI-DRUG RESISTANCE ALERT:");
+    lines.push(`  Detected MDR patterns: ${mdrType.join(", ")}`);
+    lines.push("  → Infection control measures recommended");
+    lines.push("  → Consider Infectious Disease consultation");
+    lines.push("");
+  }
+  
+  // Sensitivity Summary
+  if (sensitivities.length > 0) {
+    const sensitive = sensitivities.filter(s => s.result === "S");
+    const resistant = sensitivities.filter(s => s.result === "R");
+    const intermediate = sensitivities.filter(s => s.result === "I");
+    
+    lines.push("💊 ANTIBIOTIC SENSITIVITY PROFILE:");
+    lines.push("");
+    
+    if (sensitive.length > 0) {
+      lines.push("  ✅ SENSITIVE (Recommended options):");
+      sensitive.forEach(s => {
+        lines.push(`    • ${s.antibiotic} — organism responds to treatment`);
+      });
+      lines.push("");
+    }
+    
+    if (resistant.length > 0) {
+      lines.push("  ❌ RESISTANT (Avoid):");
+      resistant.forEach(s => {
+        lines.push(`    • ${s.antibiotic} — organism is resistant`);
+      });
+      lines.push("");
+    }
+    
+    if (intermediate.length > 0) {
+      lines.push("  ⚡ INTERMEDIATE:");
+      intermediate.forEach(s => {
+        lines.push(`    • ${s.antibiotic} — may require higher doses`);
+      });
+      lines.push("");
+    }
+    
+    // Treatment recommendation
+    lines.push("📌 TREATMENT RECOMMENDATION:");
+    if (sensitive.length > 0) {
+      lines.push(`  First-choice antibiotics based on culture: ${sensitive.slice(0, 3).map(s => s.antibiotic).join(", ")}`);
+      if (resistant.length > 0) {
+        lines.push(`  Avoid: ${resistant.map(s => s.antibiotic).join(", ")}`);
+      }
+    } else {
+      lines.push("  No clear sensitivity data — consider empiric therapy based on local guidelines.");
+    }
+  } else {
+    lines.push("💊 No antibiotic sensitivity data extracted.");
+    lines.push("  Manual review of the original report is recommended.");
+  }
+  
+  lines.push("");
+  lines.push("─────────────────────────────────");
+  lines.push("Note: This is an auto-generated summary from OCR text extraction.");
+  lines.push("Always verify against the original lab report document.");
+  
+  return lines.join("\n");
 }
 
 function processOcrText(text: string): OcrResult {
@@ -181,6 +260,7 @@ function processOcrText(text: string): OcrResult {
   const sensitivities = extractSensitivities(text, organisms);
   const { isMdr, mdrType } = detectMdr(text);
   const specimenType = detectSpecimenType(text);
+  const medicalSummary = generateMedicalSummary(organisms, sensitivities, specimenType, isMdr, mdrType, text);
 
   return {
     organisms,
@@ -190,11 +270,11 @@ function processOcrText(text: string): OcrResult {
     isMdr,
     mdrType,
     rawText: text,
+    medicalSummary,
   };
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -215,10 +295,8 @@ serve(async (req) => {
       throw new Error("Missing labReportId or ocrText");
     }
 
-    // Process the OCR text
     const result = processOcrText(ocrText);
 
-    // Update the lab report with extracted data
     const { error: updateError } = await supabase
       .from("lab_reports")
       .update({
@@ -229,6 +307,7 @@ serve(async (req) => {
         is_mdr: result.isMdr,
         mdr_type: result.mdrType,
         specimen_type: result.specimenType || undefined,
+        medical_summary: result.medicalSummary,
       })
       .eq("id", labReportId);
 
@@ -245,6 +324,7 @@ serve(async (req) => {
           isMdr: result.isMdr,
           mdrType: result.mdrType,
           specimenType: result.specimenType,
+          medicalSummary: result.medicalSummary,
         },
       }),
       {

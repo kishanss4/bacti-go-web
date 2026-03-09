@@ -35,9 +35,12 @@ import {
   X,
   AlertTriangle,
   Trash2,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "@/hooks/useAppContext";
+import { exportToCsv } from "@/lib/exportCsv";
+import { notifyPrescriptionApproved, notifyPrescriptionRejected } from "@/lib/notifications";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -226,6 +229,15 @@ export default function AdminPage() {
 
       if (error) throw error;
 
+      const rx = pendingPrescriptions.find((p) => p.id === prescriptionId);
+      if (rx) {
+        if (action === "approved") {
+          await notifyPrescriptionApproved(rx.prescribed_by, rx.antibiotic_name, rx.id, rx.patient_name || "Unknown");
+        } else {
+          await notifyPrescriptionRejected(rx.prescribed_by, rx.antibiotic_name, rx.id, rx.patient_name || "Unknown", reason || "No reason provided");
+        }
+      }
+
       toast({
         title: action === "approved" ? "Prescription approved" : "Prescription rejected",
         description: action === "approved" 
@@ -309,11 +321,32 @@ export default function AdminPage() {
         {/* User Management Tab */}
         <TabsContent value="users" className="space-y-4">
           <Card className="glass border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg">All Users</CardTitle>
-              <CardDescription>
-                Assign roles to users to grant them access to clinical features
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">All Users</CardTitle>
+                <CardDescription>
+                  Assign roles to users to grant them access to clinical features
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  exportToCsv(
+                    "users_export",
+                    filteredUsers.map((u) => ({
+                      Name: u.full_name || "-",
+                      Email: u.email || "-",
+                      Role: u.role || "No role",
+                      Department: u.department || "-",
+                      Joined: new Date(u.created_at).toLocaleDateString(),
+                    }))
+                  )
+                }
+              >
+                <Download className="w-4 h-4 mr-1" />
+                Export CSV
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Search */}
@@ -409,14 +442,42 @@ export default function AdminPage() {
         {/* Pending Prescriptions Tab */}
         <TabsContent value="prescriptions" className="space-y-4">
           <Card className="glass border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-warning" />
-                Restricted Antibiotic Reviews
-              </CardTitle>
-              <CardDescription>
-                Review and approve restricted antibiotic prescriptions
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-warning" />
+                  Restricted Antibiotic Reviews
+                </CardTitle>
+                <CardDescription>
+                  Review and approve restricted antibiotic prescriptions
+                </CardDescription>
+              </div>
+              {pendingPrescriptions.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    exportToCsv(
+                      "pending_prescriptions_export",
+                      pendingPrescriptions.map((rx) => ({
+                        Antibiotic: rx.antibiotic_name,
+                        Patient: rx.patient_name || "Unknown",
+                        Prescriber: rx.prescriber_name || "Unknown",
+                        Dose: `${rx.dose} ${rx.route} ${rx.frequency}`,
+                        Duration: `${rx.duration_days || "-"} days`,
+                        Indication: `${rx.infection_site?.toUpperCase()} - ${rx.clinical_setting?.toUpperCase()}`,
+                        Justification: rx.justification || "-",
+                        Restricted: rx.is_restricted ? "Yes" : "No",
+                        "Broad Spectrum": rx.is_broad_spectrum ? "Yes" : "No",
+                        Date: new Date(rx.created_at).toLocaleDateString(),
+                      }))
+                    )
+                  }
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Export CSV
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {pendingPrescriptions.length === 0 ? (

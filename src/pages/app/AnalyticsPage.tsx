@@ -27,9 +27,12 @@ import {
   XCircle, 
   Clock,
   Pill,
-  Users
+  Users,
+  Download,
 } from "lucide-react";
 import { useAppContext } from "@/hooks/useAppContext";
+import { Button } from "@/components/ui/button";
+import { exportToCsv } from "@/lib/exportCsv";
 
 interface AnalyticsData {
   prescriptionStats: {
@@ -207,14 +210,61 @@ export default function AnalyticsPage() {
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
-          <Activity className="w-7 h-7 text-primary" />
-          Stewardship Analytics
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Monitor antibiotic usage patterns and stewardship outcomes
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
+            <Activity className="w-7 h-7 text-primary" />
+            Stewardship Analytics
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Monitor antibiotic usage patterns and stewardship outcomes
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            // Export all analytics data
+            const rows: Record<string, any>[] = [];
+            
+            // Prescription stats
+            rows.push({
+              Section: "Prescription Stats",
+              Metric: "Total",
+              Value: data?.prescriptionStats.total,
+            });
+            rows.push({ Section: "Prescription Stats", Metric: "Pending", Value: data?.prescriptionStats.pending });
+            rows.push({ Section: "Prescription Stats", Metric: "Approved", Value: data?.prescriptionStats.approved });
+            rows.push({ Section: "Prescription Stats", Metric: "Rejected", Value: data?.prescriptionStats.rejected });
+            rows.push({ Section: "Prescription Stats", Metric: "Completed", Value: data?.prescriptionStats.completed });
+
+            // Antibiotic usage
+            data?.antibioticUsage.forEach((a) =>
+              rows.push({ Section: "Antibiotic Usage", Metric: a.name, Value: a.count })
+            );
+
+            // MDR stats
+            data?.mdrStats.forEach((m) =>
+              rows.push({ Section: "MDR Analysis", Metric: m.name, Value: m.value })
+            );
+
+            // Patient types
+            data?.patientTypeDistribution.forEach((p) =>
+              rows.push({ Section: "Patient Risk", Metric: p.name, Value: p.value })
+            );
+
+            // Monthly trends
+            data?.monthlyTrends.forEach((m) => {
+              rows.push({ Section: "Monthly Trends", Metric: `${m.month} - Prescriptions`, Value: m.prescriptions });
+              rows.push({ Section: "Monthly Trends", Metric: `${m.month} - MDR`, Value: m.mdr });
+            });
+
+            exportToCsv("analytics_export", rows);
+          }}
+        >
+          <Download className="w-4 h-4 mr-1" />
+          Export All Data
+        </Button>
       </div>
 
       {/* Stats Cards */}

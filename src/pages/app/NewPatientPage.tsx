@@ -283,13 +283,33 @@ export default function NewPatientPage() {
                 <Label htmlFor="age">Age (years) *</Label>
                 <Input
                   id="age"
-                  type="number"
-                  min="0"
-                  max="150"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={formData.age}
                   onChange={(e) => {
-                    setFormData({ ...formData, age: e.target.value });
-                    handleRiskFactorChange("is_elderly", parseInt(e.target.value) >= 65);
+                    const val = e.target.value.replace(/[^0-9]/g, '');
+                    if (val !== '' && parseInt(val) > 150) return;
+                    const newData = { ...formData, age: val, is_elderly: parseInt(val) >= 65 };
+                    setFormData(newData);
+                    const {
+                      is_community_acquired, has_prior_antibiotics_90_days,
+                      has_healthcare_contact, hospitalized_days,
+                      has_invasive_procedures, is_immunocompromised,
+                      has_persistent_fever, has_septic_shock,
+                    } = newData;
+                    const isElderly = parseInt(val) >= 65;
+                    let newType = "type_1";
+                    if (has_septic_shock) newType = "type_4";
+                    else if (is_immunocompromised && has_persistent_fever) newType = "type_4";
+                    else if (!is_community_acquired || hospitalized_days >= 5) newType = "type_3";
+                    else if (has_invasive_procedures) newType = "type_3";
+                    else if (is_immunocompromised) newType = "type_3";
+                    else if (has_persistent_fever && has_prior_antibiotics_90_days) newType = "type_3";
+                    else if (has_prior_antibiotics_90_days) newType = "type_2";
+                    else if (has_healthcare_contact) newType = "type_2";
+                    else if (isElderly && (has_persistent_fever || hospitalized_days > 0)) newType = "type_2";
+                    setCalculatedType(newType);
                   }}
                   placeholder="Age"
                   required

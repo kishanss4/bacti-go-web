@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import MedicalHistorySection from "@/components/patient/MedicalHistorySection";
 import { Button } from "@/components/ui/button";
+import { useProfileNames } from "@/hooks/useProfileNames";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -56,6 +58,14 @@ export default function PatientDetailPage() {
   const [loading, setLoading] = useState(true);
   const [discharging, setDischarging] = useState(false);
   const [dischargeNotes, setDischargeNotes] = useState("");
+
+  // Resolve all staff user IDs to display names
+  const allUserIds = [
+    patient?.created_by,
+    ...labReports.map((r) => r.uploaded_by),
+    ...prescriptions.map((rx) => rx.prescribed_by),
+  ];
+  const profileNames = useProfileNames(allUserIds);
 
   useEffect(() => {
     if (id) {
@@ -308,8 +318,9 @@ export default function PatientDetailPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="history">Medical History</TabsTrigger>
           <TabsTrigger value="labs">
             Lab Reports ({labReports.length})
           </TabsTrigger>
@@ -346,6 +357,14 @@ export default function PatientDetailPage() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Renal Function</span>
                   <span className="capitalize">{patient.renal_function}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Added By</span>
+                  <span>{profileNames[patient.created_by] || "Unknown"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Added On</span>
+                  <span>{new Date(patient.created_at).toLocaleDateString()}</span>
                 </div>
               </CardContent>
             </Card>
@@ -390,6 +409,15 @@ export default function PatientDetailPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Medical History Tab */}
+        <TabsContent value="history" className="space-y-4">
+          <MedicalHistorySection
+            patientId={patient.id}
+            patientName={patient.full_name}
+            userRole={userRole}
+          />
         </TabsContent>
 
         {/* Lab Reports Tab */}
@@ -439,6 +467,9 @@ export default function PatientDetailPage() {
                             {report.specimen_type} •{" "}
                             {new Date(report.created_at).toLocaleDateString()}
                           </p>
+                          <p className="text-xs text-muted-foreground">
+                            Uploaded by: {profileNames[report.uploaded_by] || "Unknown"}
+                          </p>
                         </div>
                       </div>
                       <Badge
@@ -484,7 +515,8 @@ export default function PatientDetailPage() {
                   {prescriptions.map((rx) => (
                     <div
                       key={rx.id}
-                      className="p-3 rounded-lg bg-muted/50 flex items-center justify-between"
+                      className="p-3 rounded-lg bg-muted/50 flex items-center justify-between cursor-pointer hover:bg-muted"
+                      onClick={() => navigate(`/prescriptions/${rx.id}`)}
                     >
                       <div className="flex items-center gap-3">
                         <Pill className="w-5 h-5 text-primary" />
@@ -492,6 +524,9 @@ export default function PatientDetailPage() {
                           <p className="font-medium text-sm">{rx.antibiotic_name}</p>
                           <p className="text-xs text-muted-foreground">
                             {rx.dose} {rx.route} {rx.frequency}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Prescribed by: {profileNames[rx.prescribed_by] || "Unknown"}
                           </p>
                         </div>
                       </div>

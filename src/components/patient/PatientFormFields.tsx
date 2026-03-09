@@ -67,11 +67,16 @@ export function PatientFormFields({
               <Label htmlFor="age">Age (years) *</Label>
               <Input
                 id="age"
-                type="number"
-                min="0"
-                max="150"
-                value={formData.age ?? ""}
-                onChange={(e) => onChange("age", e.target.value)}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.age}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 150)) {
+                    onChange("age", val);
+                  }
+                }}
                 placeholder="Age"
                 required
               />

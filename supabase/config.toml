@@ -1,1 +1,7 @@
 project_id = "kdnhpcimrjqmepwlptjw"
+
+[functions.process-lab-ocr]
+verify_jwt = false
+
+[functions.process-medical-history]
+verify_jwt = false

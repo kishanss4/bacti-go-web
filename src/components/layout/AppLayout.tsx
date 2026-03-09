@@ -83,8 +83,8 @@ const NavContent = ({
                 key={item.href}
                 className={cn(
                   "w-full flex items-center justify-start gap-3 h-11 px-3 rounded-md transition-colors",
-                  "text-white/90 hover:text-white hover:bg-white/10",
-                  isActive && "bg-sidebar-accent text-white font-medium"
+                  "text-sidebar-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent",
+                  isActive && "!bg-sidebar-primary !text-sidebar-primary-foreground font-medium"
                 )}
                 onClick={() => onNavigate(item.href)}
               >
@@ -114,8 +114,8 @@ const NavContent = ({
                     key={item.href}
                     className={cn(
                       "w-full flex items-center justify-start gap-3 h-11 px-3 rounded-md transition-colors",
-                      "text-white/90 hover:text-white hover:bg-white/10",
-                      isActive && "bg-sidebar-accent text-white font-medium"
+                      "text-sidebar-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent",
+                      isActive && "!bg-sidebar-primary !text-sidebar-primary-foreground font-medium"
                     )}
                     onClick={() => onNavigate(item.href)}
                   >
@@ -132,9 +132,9 @@ const NavContent = ({
       {/* Role Badge */}
       {userRole && (
         <div className="p-3 border-t border-sidebar-border">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10">
-            <User className="w-4 h-4 text-primary" />
-            <span className="text-sm text-white capitalize">{userRole}</span>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sidebar-accent">
+            <User className="w-4 h-4 text-sidebar-primary" />
+            <span className="text-sm text-sidebar-foreground capitalize">{userRole}</span>
           </div>
         </div>
       )}
@@ -182,9 +182,11 @@ export default function AppLayout() {
 
     getUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || (!session && event !== "INITIAL_SESSION")) {
         navigate("/");
+      } else if (event === "TOKEN_REFRESHED" && session) {
+        setUser(session.user);
       }
     });
 
@@ -237,7 +239,7 @@ export default function AppLayout() {
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-64 bg-sidebar">
+            <SheetContent side="left" className="p-0 w-64 !bg-sidebar border-sidebar-border [&>button]:text-sidebar-foreground">
               <NavContent
                 currentPath={location.pathname}
                 onNavigate={handleNavigate}
@@ -279,11 +281,38 @@ export default function AppLayout() {
           </div>
         </header>
 
-        {/* Page Content - with safe area padding at bottom for mobile navigation */}
-        <main className="flex-1 overflow-auto pb-safe">
+        {/* Page Content */}
+        <main className="flex-1 overflow-auto pb-20 lg:pb-0">
           <Outlet context={{ user, userRole }} />
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border flex items-center justify-around h-16" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {[
+          { label: "Home", href: "/dashboard", icon: Home },
+          { label: "Patients", href: "/patients", icon: Users },
+          { label: "Reports", href: "/lab-reports", icon: FileText },
+          { label: "Rx", href: "/prescriptions", icon: ClipboardList },
+          { label: "Profile", href: "/profile", icon: User },
+        ].map((item) => {
+          const isActive = location.pathname === item.href || 
+            (item.href !== "/dashboard" && item.href !== "/profile" && location.pathname.startsWith(item.href));
+          return (
+            <button
+              key={item.href}
+              onClick={() => handleNavigate(item.href)}
+              className={cn(
+                "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors",
+                isActive ? "text-primary" : "text-muted-foreground"
+              )}
+            >
+              <item.icon className={cn("w-5 h-5", isActive && "text-primary")} />
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }

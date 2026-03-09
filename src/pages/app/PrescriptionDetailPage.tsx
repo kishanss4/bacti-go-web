@@ -26,14 +26,12 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  Loader2,
-  FileText,
-  Stethoscope,
-  Shield,
+  Loader2, FileText, Stethoscope, Shield, Trash2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { notifyPrescriptionApproved, notifyPrescriptionRejected } from "@/lib/notifications";
 import type { Database } from "@/integrations/supabase/types";
 
 type Prescription = Database["public"]["Tables"]["prescriptions"]["Row"];
@@ -136,6 +134,13 @@ export default function PrescriptionDetailPage() {
 
       await logAction("UPDATE", "prescriptions", prescription.id, { status: "approved" });
 
+      await notifyPrescriptionApproved(
+        prescription.prescribed_by,
+        prescription.antibiotic_name,
+        prescription.id,
+        prescription.patients?.full_name || "Unknown"
+      );
+
       toast({
         title: "Prescription approved",
         description: "The prescription has been approved.",
@@ -180,6 +185,14 @@ export default function PrescriptionDetailPage() {
         status: "rejected", 
         rejection_reason: rejectionReason 
       });
+
+      await notifyPrescriptionRejected(
+        prescription.prescribed_by,
+        prescription.antibiotic_name,
+        prescription.id,
+        prescription.patients?.full_name || "Unknown",
+        rejectionReason
+      );
 
       toast({
         title: "Prescription rejected",
@@ -604,6 +617,68 @@ export default function PrescriptionDetailPage() {
               )}
               Complete
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete Prescription - Doctors & Admins */}
+      {(userRole === "doctor" || userRole === "admin") && (
+        <Card className="border-destructive/20">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-destructive">Delete Prescription</p>
+              <p className="text-xs text-muted-foreground">
+                Permanently remove this prescription record
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={actionLoading}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Prescription</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete this prescription. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive hover:bg-destructive/90"
+                    onClick={async () => {
+                      setActionLoading(true);
+                      try {
+                        const { error } = await supabase
+                          .from("prescriptions")
+                          .delete()
+                          .eq("id", prescription.id);
+                        if (error) throw error;
+                        await logAction("DELETE", "prescriptions", prescription.id);
+                        toast({
+                          title: "Prescription deleted",
+                          description: "The prescription has been permanently deleted.",
+                        });
+                        navigate("/prescriptions");
+                      } catch (error: any) {
+                        toast({
+                          title: "Error",
+                          description: error.message || "Failed to delete prescription",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                  >
+                    Delete Prescription
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       )}

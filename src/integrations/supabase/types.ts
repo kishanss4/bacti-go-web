@@ -119,6 +119,7 @@ export type Database = {
           id: string
           is_mdr: boolean | null
           mdr_type: string[] | null
+          medical_summary: string | null
           ocr_processed: boolean | null
           ocr_text: string | null
           organisms: Json | null
@@ -140,6 +141,7 @@ export type Database = {
           id?: string
           is_mdr?: boolean | null
           mdr_type?: string[] | null
+          medical_summary?: string | null
           ocr_processed?: boolean | null
           ocr_text?: string | null
           organisms?: Json | null
@@ -161,6 +163,7 @@ export type Database = {
           id?: string
           is_mdr?: boolean | null
           mdr_type?: string[] | null
+          medical_summary?: string | null
           ocr_processed?: boolean | null
           ocr_text?: string | null
           organisms?: Json | null
@@ -177,6 +180,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "lab_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medical_history_documents: {
+        Row: {
+          created_at: string
+          document_date: string | null
+          document_type: string | null
+          file_name: string
+          file_url: string
+          id: string
+          ocr_text: string | null
+          patient_id: string
+          summary: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          document_date?: string | null
+          document_type?: string | null
+          file_name: string
+          file_url: string
+          id?: string
+          ocr_text?: string | null
+          patient_id: string
+          summary?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          document_date?: string | null
+          document_type?: string | null
+          file_name?: string
+          file_url?: string
+          id?: string
+          ocr_text?: string | null
+          patient_id?: string
+          summary?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medical_history_documents_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
@@ -243,6 +293,9 @@ export type Database = {
           is_elderly: boolean | null
           is_immunocompromised: boolean | null
           known_allergies: string[] | null
+          medical_history_file_name: string | null
+          medical_history_file_url: string | null
+          medical_history_summary: string | null
           patient_id: string | null
           patient_type: Database["public"]["Enums"]["patient_type"] | null
           patient_type_override: boolean | null
@@ -275,6 +328,9 @@ export type Database = {
           is_elderly?: boolean | null
           is_immunocompromised?: boolean | null
           known_allergies?: string[] | null
+          medical_history_file_name?: string | null
+          medical_history_file_url?: string | null
+          medical_history_summary?: string | null
           patient_id?: string | null
           patient_type?: Database["public"]["Enums"]["patient_type"] | null
           patient_type_override?: boolean | null
@@ -307,6 +363,9 @@ export type Database = {
           is_elderly?: boolean | null
           is_immunocompromised?: boolean | null
           known_allergies?: string[] | null
+          medical_history_file_name?: string | null
+          medical_history_file_url?: string | null
+          medical_history_summary?: string | null
           patient_id?: string | null
           patient_type?: Database["public"]["Enums"]["patient_type"] | null
           patient_type_override?: boolean | null

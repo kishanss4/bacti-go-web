@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "@/hooks/useAppContext";
+import { notifyRestrictedPrescription } from "@/lib/notifications";
 import type { Database } from "@/integrations/supabase/types";
 
 type Patient = Database["public"]["Tables"]["patients"]["Row"];
@@ -75,7 +76,7 @@ export default function NewPrescriptionPage() {
     antibiotic_name: "",
     antibiotic_class: "",
     dose: "",
-    route: "IV",
+    route: "iv",
     frequency: "",
     duration_days: 7,
     start_date: new Date().toISOString().split("T")[0],
@@ -100,6 +101,25 @@ export default function NewPrescriptionPage() {
       fetchPatientDetails(formData.patient_id);
     }
   }, [formData.patient_id]);
+
+  // Auto-set restricted and broad spectrum flags based on antibiotic name
+  useEffect(() => {
+    if (!formData.antibiotic_name) return;
+    const abName = formData.antibiotic_name.toLowerCase();
+
+    const restrictedAntibiotics = ["meropenem", "imipenem", "vancomycin", "linezolid", "colistin", "tigecycline"];
+    const isRestricted = restrictedAntibiotics.some((ab) => abName.includes(ab));
+
+    const broadSpectrum = ["piperacillin-tazobactam", "meropenem", "imipenem", "ceftriaxone", "ciprofloxacin", "levofloxacin"];
+    const isBroad = broadSpectrum.some((ab) => abName.includes(ab));
+
+    setFormData((prev) => ({
+      ...prev,
+      is_restricted: isRestricted || prev.is_restricted,
+      requires_justification: isRestricted || prev.requires_justification,
+      is_broad_spectrum: isBroad || prev.is_broad_spectrum,
+    }));
+  }, [formData.antibiotic_name]);
 
   const fetchInitialData = async () => {
     try {
@@ -269,18 +289,6 @@ export default function NewPrescriptionPage() {
         message: `${formData.antibiotic_name} is a restricted antibiotic. Justification required for stewardship review.`,
         requiresAcknowledgment: true,
       });
-      // Auto-set restricted flag
-      if (!formData.is_restricted) {
-        setFormData((prev) => ({ ...prev, is_restricted: true, requires_justification: true }));
-      }
-    }
-
-    // Check broad spectrum
-    const broadSpectrum = ["piperacillin-tazobactam", "meropenem", "imipenem", "ceftriaxone", "ciprofloxacin", "levofloxacin"];
-    if (broadSpectrum.some((ab) => abName.includes(ab))) {
-      if (!formData.is_broad_spectrum) {
-        setFormData((prev) => ({ ...prev, is_broad_spectrum: true }));
-      }
     }
 
     // Check culture guidance
@@ -323,7 +331,7 @@ export default function NewPrescriptionPage() {
       antibiotic_name: option.name,
       antibiotic_class: option.class || "",
       dose: option.dose || prev.dose,
-      route: option.route || prev.route,
+      route: option.route ? ({ "PO": "oral", "IV": "iv", "IM": "im", "SC": "iv", "Topical": "topical" }[option.route] || option.route.toLowerCase()) : prev.route,
       frequency: option.frequency || prev.frequency,
       culture_based_decision: option.source === "culture" ? "culture_guided" : prev.culture_based_decision,
     }));
@@ -381,7 +389,7 @@ export default function NewPrescriptionPage() {
           is_restricted: formData.is_restricted,
           requires_justification: formData.requires_justification,
           justification: formData.justification || null,
-          culture_based_decision: formData.culture_based_decision,
+          culture_based_decision: formData.culture_based_decision === "empiric" ? null : (formData.culture_based_decision === "culture_guided" ? "continue" : formData.culture_based_decision === "de_escalation" ? "de_escalate" : null),
           culture_decision_notes: formData.culture_decision_notes || null,
           lab_report_id: formData.lab_report_id || null,
           warnings_acknowledged: acknowledgedWarnings,
@@ -392,6 +400,26 @@ export default function NewPrescriptionPage() {
         .single();
 
       if (error) throw error;
+
+      // Notify admins if restricted antibiotic
+      if (formData.is_restricted && data) {
+        const { data: adminRoles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "admin");
+        
+        const adminIds = adminRoles?.map((r) => r.user_id) || [];
+        const patientName = selectedPatient?.full_name || "Unknown";
+        const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+        
+        await notifyRestrictedPrescription(
+          adminIds,
+          profile?.full_name || "A doctor",
+          formData.antibiotic_name,
+          data.id,
+          patientName
+        );
+      }
 
       toast({
         title: formData.is_restricted ? "Prescription submitted for review" : "Prescription created",
@@ -428,7 +456,12 @@ export default function NewPrescriptionPage() {
     { value: "icu", label: "Intensive Care Unit (ICU)" },
   ];
 
-  const routes = ["IV", "IM", "PO", "SC", "Topical", "Inhaled"];
+  const routes = [
+    { value: "iv", label: "IV" },
+    { value: "im", label: "IM" },
+    { value: "oral", label: "PO (Oral)" },
+    { value: "topical", label: "Topical" },
+  ];
 
   const frequencies = [
     "Once daily",
@@ -488,29 +521,31 @@ export default function NewPrescriptionPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Select
-              value={formData.patient_id}
-              onValueChange={(value) => setFormData({ ...formData, patient_id: value, lab_report_id: "" })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a patient" />
-              </SelectTrigger>
-              <SelectContent>
-                {loadingData ? (
-                  <div className="p-4 flex justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  </div>
-                ) : patients.length === 0 ? (
-                  <div className="p-4 text-center text-muted-foreground">No active patients</div>
-                ) : (
-                  patients.map((patient) => (
-                    <SelectItem key={patient.id} value={patient.id}>
-                      {patient.full_name} ({patient.patient_id || "No ID"}) - {patient.age}y {patient.gender}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            {loadingData ? (
+              <div className="p-4 flex justify-center">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <Select
+                value={formData.patient_id}
+                onValueChange={(value) => setFormData({ ...formData, patient_id: value, lab_report_id: "" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a patient" />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.length === 0 ? (
+                    <div className="p-4 text-center text-muted-foreground">No active patients</div>
+                  ) : (
+                    patients.map((patient) => (
+                      <SelectItem key={patient.id} value={patient.id}>
+                        {patient.full_name} ({patient.patient_id || "No ID"}) - {patient.age}y {patient.gender}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            )}
 
             {selectedPatient && (
               <div className="p-4 rounded-lg bg-muted/50 space-y-3">
@@ -622,10 +657,11 @@ export default function NewPrescriptionPage() {
               <div className="space-y-2">
                 <Label>Link to Lab Report (optional)</Label>
                 <Select
-                  value={formData.lab_report_id}
+                  value={formData.lab_report_id || "none"}
                   onValueChange={(value) => {
-                    setFormData({ ...formData, lab_report_id: value });
-                    const report = patientLabReports.find((r) => r.id === value);
+                    const actualValue = value === "none" ? "" : value;
+                    setFormData({ ...formData, lab_report_id: actualValue });
+                    const report = patientLabReports.find((r) => r.id === actualValue);
                     setSelectedLabReport(report || null);
                   }}
                 >
@@ -633,7 +669,7 @@ export default function NewPrescriptionPage() {
                     <SelectValue placeholder="Select culture report" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {patientLabReports.map((report) => (
                       <SelectItem key={report.id} value={report.id}>
                         {report.report_type} - {report.specimen_type} ({new Date(report.created_at).toLocaleDateString()})
@@ -746,8 +782,8 @@ export default function NewPrescriptionPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {routes.map((route) => (
-                      <SelectItem key={route} value={route}>
-                        {route}
+                      <SelectItem key={route.value} value={route.value}>
+                        {route.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

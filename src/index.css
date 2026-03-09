@@ -82,8 +82,8 @@
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
+    --border: 220 20% 25%;
+    --input: 220 20% 25%;
     --ring: 199 89% 48%;
 
     /* Medical risk level colors - adjusted for dark mode */

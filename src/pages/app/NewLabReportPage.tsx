@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import Tesseract from "tesseract.js";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "@/hooks/useAppContext";
+import { notifyMdrDetected } from "@/lib/notifications";
 import type { Database } from "@/integrations/supabase/types";
 
 type Patient = Database["public"]["Tables"]["patients"]["Row"];
@@ -56,7 +58,7 @@ export default function NewLabReportPage() {
   // Form state
   const [formData, setFormData] = useState({
     patient_id: searchParams.get("patient") || "",
-    report_type: "Culture",
+    report_type: "culture_sensitivity",
     specimen_type: "",
     specimen_date: "",
     is_mdr: false,
@@ -304,7 +306,7 @@ export default function NewLabReportPage() {
 
       if (error) throw error;
 
-      // Upload file if selected
+      // Upload file if selected, then run OCR
       if (selectedFile && data) {
         const fileResult = await uploadFileAndProcess(data.id);
         if (fileResult) {
@@ -315,6 +317,81 @@ export default function NewLabReportPage() {
               file_name: fileResult.fileName,
             })
             .eq("id", data.id);
+
+          // Run client-side OCR on images and PDFs
+          if (selectedFile.type.startsWith("image/") || selectedFile.type === "application/pdf") {
+            setProcessingOcr(true);
+            try {
+              // For PDFs, we use the first page rendered as image via canvas
+              let ocrInput: File | string = selectedFile;
+              
+              if (selectedFile.type === "application/pdf") {
+                // Convert first PDF page to image for OCR
+                try {
+                  const { pdfFirstPageToBlob } = await import("@/lib/pdfToImage");
+                  const pdfBlob = await pdfFirstPageToBlob(selectedFile);
+                  const { data: ocrData } = await Tesseract.recognize(pdfBlob, "eng", {
+                    logger: (m: any) => {
+                      if (m.status === "recognizing text") {
+                        setUploadProgress(60 + Math.round((m.progress || 0) * 40));
+                      }
+                    },
+                  });
+                  const extractedText = ocrData?.text || "";
+                  if (extractedText.trim()) {
+                    await processOcrForReport(data.id, extractedText);
+                  } else {
+                    toast({
+                      title: "PDF OCR",
+                      description: "Could not extract text from PDF. You can enter organisms manually.",
+                    });
+                  }
+                } catch (pdfErr) {
+                  console.error("PDF OCR error:", pdfErr);
+                  toast({
+                    title: "PDF OCR failed",
+                    description: "Could not process PDF. You can enter data manually.",
+                    variant: "destructive",
+                  });
+                }
+                setProcessingOcr(false);
+              } else {
+                const { data: ocrData } = await Tesseract.recognize(ocrInput, "eng", {
+                  logger: (m: any) => {
+                    if (m.status === "recognizing text") {
+                      setUploadProgress(60 + Math.round((m.progress || 0) * 40));
+                    }
+                  },
+                });
+                const extractedText = ocrData?.text || "";
+                if (extractedText.trim()) {
+                  await processOcrForReport(data.id, extractedText);
+                }
+                setProcessingOcr(false);
+              }
+            } catch (ocrErr) {
+              console.error("Tesseract OCR error:", ocrErr);
+              setProcessingOcr(false);
+            }
+          }
+        }
+      }
+
+      // Notify assigned doctor if MDR detected
+      if (formData.is_mdr && formData.mdr_type.length > 0 && data) {
+        const { data: patient } = await supabase
+          .from("patients")
+          .select("assigned_doctor, full_name")
+          .eq("id", formData.patient_id)
+          .single();
+        
+        if (patient?.assigned_doctor) {
+          await notifyMdrDetected(
+            patient.assigned_doctor,
+            patient.full_name,
+            formData.mdr_type,
+            data.id
+          );
         }
       }
 
@@ -558,11 +635,10 @@ export default function NewLabReportPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Culture">Culture</SelectItem>
-                    <SelectItem value="Culture & Sensitivity">Culture & Sensitivity</SelectItem>
-                    <SelectItem value="Blood Culture">Blood Culture</SelectItem>
-                    <SelectItem value="Urine Culture">Urine Culture</SelectItem>
-                    <SelectItem value="Sputum Culture">Sputum Culture</SelectItem>
+                    <SelectItem value="culture_sensitivity">Culture & Sensitivity</SelectItem>
+                    <SelectItem value="blood_test">Blood Test</SelectItem>
+                    <SelectItem value="urine_test">Urine Test</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

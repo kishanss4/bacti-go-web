@@ -24,6 +24,7 @@ import {
   Pill,
 } from "lucide-react";
 import { useAppContext } from "@/hooks/useAppContext";
+import { useProfileNames } from "@/hooks/useProfileNames";
 import type { Database } from "@/integrations/supabase/types";
 
 type Prescription = Database["public"]["Tables"]["prescriptions"]["Row"];
@@ -38,6 +39,7 @@ export default function PrescriptionsPage() {
   const [prescriptions, setPrescriptions] = useState<PrescriptionWithPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const profileNames = useProfileNames(prescriptions.map((rx) => rx.prescribed_by));
 
   useEffect(() => {
     fetchPrescriptions();
@@ -72,13 +74,13 @@ export default function PrescriptionsPage() {
   const getStatusBadge = (status: string | null) => {
     switch (status) {
       case "approved":
-        return <Badge className="bg-success">Approved</Badge>;
+        return <Badge variant="success">Approved</Badge>;
       case "pending":
-        return <Badge variant="secondary">Pending</Badge>;
+        return <Badge variant="warning">Pending</Badge>;
       case "rejected":
         return <Badge variant="destructive">Rejected</Badge>;
       case "completed":
-        return <Badge variant="outline">Completed</Badge>;
+        return <Badge variant="info">Completed</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -149,10 +151,10 @@ export default function PrescriptionsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Patient</TableHead>
+                     <TableHead>Patient</TableHead>
                     <TableHead>Antibiotic</TableHead>
                     <TableHead>Dose & Route</TableHead>
-                    <TableHead>Frequency</TableHead>
+                    <TableHead>Prescribed By</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-12"></TableHead>
                   </TableRow>
@@ -191,8 +193,8 @@ export default function PrescriptionsPage() {
                       <TableCell className="text-muted-foreground">
                         {rx.dose} {rx.route}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {rx.frequency}
+                      <TableCell className="text-sm text-muted-foreground">
+                        {profileNames[rx.prescribed_by] || "Unknown"}
                       </TableCell>
                       <TableCell>{getStatusBadge(rx.status)}</TableCell>
                       <TableCell>

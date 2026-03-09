@@ -1,0 +1,1 @@
+ALTER TABLE public.lab_reports ADD COLUMN IF NOT EXISTS medical_summary TEXT;

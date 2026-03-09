@@ -23,6 +23,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useAppContext } from "@/hooks/useAppContext";
+import { useProfileNames } from "@/hooks/useProfileNames";
 import type { Database } from "@/integrations/supabase/types";
 
 type Patient = Database["public"]["Tables"]["patients"]["Row"];
@@ -33,6 +34,7 @@ export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const profileNames = useProfileNames(patients.map((p) => p.created_by));
 
   useEffect(() => {
     fetchPatients();
@@ -154,9 +156,10 @@ export default function PatientsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Patient</TableHead>
+                     <TableHead>Patient</TableHead>
                     <TableHead>ID</TableHead>
                     <TableHead>Ward/Bed</TableHead>
+                    <TableHead>Added By</TableHead>
                     <TableHead>Risk Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-12"></TableHead>
@@ -190,6 +193,9 @@ export default function PatientsPage() {
                       </TableCell>
                       <TableCell>
                         {patient.ward ? `${patient.ward} / ${patient.bed_number || "-"}` : "-"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {profileNames[patient.created_by] || "—"}
                       </TableCell>
                       <TableCell>
                         {getPatientTypeBadge(patient.patient_type)}
