@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import logoBlack from "@/assets/logo-black.png";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -61,9 +62,7 @@ const NavContent = ({
       {/* Logo */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-            <Pill className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <img src={logoBlack} alt="BACTI-GO" className="w-10 h-10 rounded-xl object-contain" />
           <div>
             <h1 className="text-lg font-bold text-sidebar-foreground">BACTI-GO</h1>
             <p className="text-xs text-muted-foreground">Antibiotic Stewardship</p>
@@ -210,7 +209,7 @@ export default function AppLayout() {
     return (
       <div className="dark min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-4">
-          <Pill className="w-12 h-12 text-primary animate-pulse-ring" />
+          <img src={logoBlack} alt="BACTI-GO" className="w-12 h-12 animate-pulse-ring" />
           <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>

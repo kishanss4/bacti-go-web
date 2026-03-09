@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Pill, Shield, Loader2, AlertCircle } from "lucide-react";
+import { Shield, Loader2, AlertCircle } from "lucide-react";
+import logoBlack from "@/assets/logo-black.png";
 import { z } from "zod";
 
 // Input validation schemas
@@ -219,8 +220,8 @@ const Auth = () => {
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo and Title with enhanced landing feel */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl gradient-primary mb-4 animate-pulse-ring">
-            <Pill className="w-10 h-10 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 animate-pulse-ring">
+            <img src={logoBlack} alt="BACTI-GO" className="w-20 h-20 rounded-2xl object-contain" />
           </div>
           <h1 className="text-4xl font-bold text-foreground tracking-tight">BACTI-GO</h1>
           <p className="text-xl text-primary font-medium mt-2">Antibiotic Stewardship Decision Support</p>
